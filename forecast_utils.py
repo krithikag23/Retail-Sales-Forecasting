@@ -18,7 +18,6 @@ def preprocess_data(df, store_id, dept_id):
     return grouped
 
 
-from prophet import Prophet
 
 def train_forecast_model(df, periods):
     model = Prophet(weekly_seasonality=True)  # ✅ Enable weekly seasonality
