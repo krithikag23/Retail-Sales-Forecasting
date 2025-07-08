@@ -1,27 +1,16 @@
-import pandas as pd
 from prophet import Prophet
 
-def preprocess_data(df, store_id, dept_id):
-    
-    # Filter by Store and Department
-    filtered_df = df[(df['Store'] == store_id) & (df['Dept'] == dept_id)]
-    
-    # Group by Date and sum sales (in case multiple rows exist per date)
-    grouped = filtered_df.groupby('Date')['Weekly_Sales'].sum().reset_index()
-    
-    # Rename columns as expected by Prophet
-    grouped.columns = ['ds', 'y']
-    
-    # Convert date to datetime
-    grouped['ds'] = pd.to_datetime(grouped['ds'])
+def preprocess_data(df_all, store_id, dept_id):
+    df = df_all[(df_all['Store'] == store_id) & (df_all['Dept'] == dept_id)].copy()
+    df.rename(columns={'Date': 'ds', 'Weekly_Sales': 'y'}, inplace=True)
+    df = df[['ds', 'y']].sort_values('ds')
+    return df
 
-    return grouped
-
-
-
-def train_forecast_model(df, periods):
-    model = Prophet(weekly_seasonality=True)  # ✅ Enable weekly seasonality
+def train_forecast_model(df, periods, freq='W'):
+    model = Prophet()
     model.fit(df)
-    future = model.make_future_dataframe(periods=periods, freq='W')
+
+    future = model.make_future_dataframe(periods=periods, freq=freq)
     forecast = model.predict(future)
+
     return forecast, model
