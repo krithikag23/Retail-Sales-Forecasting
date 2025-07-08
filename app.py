@@ -21,27 +21,36 @@ freq_options = [
     {'label': 'Monthly', 'value': 'M'},
     {'label': 'Yearly', 'value': 'Y'},
 ]
-model_optioms= {' '}
+
 # Layout
-app.layout = html.Div([
+app.layout = html.Div(id='main-div', children=[
     html.H1("🛍️ Retail Sales Forecast Dashboard (using Prophet)", style={"textAlign": "center"}),
 
     html.Div([
+        html.Label("Select Theme:"),
+        dcc.RadioItems(
+            id='theme-toggle',
+            options=[
+                {'label': '🌞 Light Mode', 'value': 'plotly_white'},
+                {'label': '🌙 Dark Mode', 'value': 'plotly_dark'}
+            ],
+            value='plotly_white',
+            labelStyle={'display': 'inline-block', 'marginRight': '15px'}
+        ),
+
+        html.Br(),
         html.Label("Select Store:"),
         dcc.Dropdown(id='store-dropdown', options=store_options, value=1),
 
         html.Br(),
-
         html.Label("Select Department:"),
         dcc.Dropdown(id='dept-dropdown', options=dept_options, value=1),
 
         html.Br(),
-
         html.Label("Select Forecast Frequency:"),
         dcc.Dropdown(id='freq-dropdown', options=freq_options, value='W'),
 
         html.Br(),
-
         html.Label("Forecast Horizon:"),
         dcc.Slider(id='forecast-slider', min=4, max=52, step=1, value=12),
 
@@ -56,7 +65,7 @@ app.layout = html.Div([
     dcc.Graph(id='seasonality-graph')
 ])
 
-# Dynamically update slider range based on frequency
+# Update forecast slider dynamically
 @app.callback(
     Output('forecast-slider', 'min'),
     Output('forecast-slider', 'max'),
@@ -77,7 +86,7 @@ def update_slider(freq):
         return 1, 5, 1, 2, {i: f'{i}y' for i in range(1, 6)}, "Forecast Years Ahead:"
     return 4, 52, 1, 12, {}, ""
 
-# Update all graphs based on input
+# Update graphs based on all inputs
 @app.callback(
     Output('forecast-graph', 'figure'),
     Output('trend-graph', 'figure'),
@@ -85,24 +94,25 @@ def update_slider(freq):
     Input('store-dropdown', 'value'),
     Input('dept-dropdown', 'value'),
     Input('forecast-slider', 'value'),
-    Input('freq-dropdown', 'value')
+    Input('freq-dropdown', 'value'),
+    Input('theme-toggle', 'value')
 )
-def update_all_graphs(store_id, dept_id, periods, freq):
+def update_all_graphs(store_id, dept_id, periods, freq, theme):
     df = preprocess_data(df_all, store_id, dept_id)
     forecast, model = train_forecast_model(df, periods=periods, freq=freq)
 
     forecast['ds'] = pd.to_datetime(forecast['ds'])
 
     # Forecast Graph
-    fig_forecast = px.line(forecast, x='ds', y='yhat', title=f"Forecast: Store {store_id}, Dept {dept_id}")
+    fig_forecast = px.line(forecast, x='ds', y='yhat', title=f"Forecast: Store {store_id}, Dept {dept_id}", template=theme)
     fig_forecast.add_scatter(x=df['ds'], y=df['y'], mode='lines+markers', name='Actual Sales')
     fig_forecast.update_layout(xaxis_title="Date", yaxis_title="Sales")
 
     # Trend Component
-    trend_fig = px.line(forecast, x='ds', y='trend', title="Trend Component")
+    trend_fig = px.line(forecast, x='ds', y='trend', title="Trend Component", template=theme)
     trend_fig.update_layout(xaxis_title="Date", yaxis_title="Trend")
 
-    # Weekly Seasonality
+    # Seasonality Component
     if 'weekly' in forecast.columns:
         weekly = forecast[['ds', 'weekly']].dropna().copy()
         weekly['day'] = weekly['ds'].dt.day_name()
@@ -112,9 +122,10 @@ def update_all_graphs(store_id, dept_id, periods, freq):
         weekly_avg = weekly_avg.sort_values('day')
 
         seasonality_fig = px.bar(weekly_avg, x='day', y='weekly', title='Weekly Seasonality',
-                                 labels={'day': 'Day of Week', 'weekly': 'Seasonal Effect'})
+                                 labels={'day': 'Day of Week', 'weekly': 'Seasonal Effect'},
+                                 template=theme)
     else:
-        seasonality_fig = px.bar(title='Seasonality not available for this frequency.')
+        seasonality_fig = px.bar(title='Seasonality not available for this frequency.', template=theme)
 
     return fig_forecast, trend_fig, seasonality_fig
 
